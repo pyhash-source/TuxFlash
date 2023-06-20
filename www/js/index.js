@@ -12,49 +12,90 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('updateDisplay').addEventListener('click', updateDisplay);
 });
 
-function onDeviceReady() {
-    console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
+let db;
 
-    let db = window.sqlitePlugin.openDatabase({
+function onDeviceReady() {
+
+    db = window.sqlitePlugin.openDatabase({
         name: "mydb.db",
         location: "default",
     });
-
-    db.transaction(function(tx) {
-        tx.executeSql(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='mytable'", [],
-            function(tx, res) {
-                // Check if the table exists
-                if (res.rows.length === 0) {
-                    // Create the table if it doesn't exist
-                    tx.executeSql(
-                        "CREATE TABLE lists (id INTEGER PRIMARY KEY AUTOINCREMENT, listName TEXT)", [],
-                        function() {
-                            alert("Table created successfully");
-                        },
-                        function(error) {
-                            alert("Error creating table: " + error.message);
-                        }
-                    );
+    setTimeout(() => {
+        updateDisplay(db)
+        db.transaction(function(tx) {
+            tx.executeSql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='mytable'", [],
+                function(tx, res) {
+                    // Check if the table exists
+                    if (res.rows.length === 0) {
+                        // Create the table if it doesn't exist
+                        tx.executeSql(
+                            "CREATE TABLE lists (id INTEGER PRIMARY KEY AUTOINCREMENT, listName TEXT)", [],
+                            function() {
+                                alert("Table created successfully");
+                                tx.executeSql('COMMIT', [], function() {
+                                    console.log('Transaction committed');
+                                }, function(error) {
+                                    console.log('Error committing transaction: ' + error.message);
+                                });
+                            },
+                            function(error) {
+                                alert("Error creating table: " + error.message);
+                            }
+                        );
+                    }
+                },
+                function(error) {
+                    alert("Error querying database: " + error.message);
                 }
-            },
-            function(error) {
-                alert("Error querying database: " + error.message);
-            }
-        );
-    });
+            );
+        });
+
+        initializeApp(db)
+
+    }, 1000);
+
+
+
 
 }
 
+//----------------------------------util------------------------
+function initializeApp(db) {
 
+    console.log("-è-è-è-è-è--è-è-è-è-è")
+    console.log(db)
+        // Attach the event listener to the button
+    var createDeckButton = document.getElementById("popupCreateDeckValidateButton");
+    var createDeckTextArea = document.getElementById("popupCreateDeckTextArea");
+    createDeckButton.addEventListener("click", function() {
+        var deckName = createDeckTextArea.value;
+
+        db.transaction(function(tx) {
+            tx.executeSql(
+                "INSERT INTO lists (listName) VALUES (?)", [deckName],
+                function() {
+                    tx.executeSql('COMMIT', [], function() {
+                        console.log('Transaction committed');
+                        createDeckTextArea.value = "";
+                        popupContainer.style.display = "none";
+                        updateDisplay(db);
+                    }, function(error) {
+                        console.log('Error committing transaction: ' + error.message);
+                    });
+
+                },
+                function(error) {
+                    console.log("Error inserting data: " + error.message);
+                }
+            );
+        });
+    });
+}
 
 
 //-----------------------------database functions----------------------------
-function addDataToListTable() {
-    var db = window.sqlitePlugin.openDatabase({
-        name: "mydb.db",
-        location: "default",
-    });
+function addDataToListTable(db) {
 
     db.transaction(function(tx) {
         tx.executeSql(
@@ -71,13 +112,7 @@ function addDataToListTable() {
 
 }
 
-function logTableColumns() {
-    console.log("At least I'm entering the function...");
-    var db = window.sqlitePlugin.openDatabase({
-        name: "mydb.db",
-        location: "default",
-    });
-
+function logTableColumns(db) {
     db.transaction(function(tx) {
         tx.executeSql(
             "SELECT * FROM lists", [],
@@ -100,11 +135,9 @@ function logTableColumns() {
 }
 
 
-function updateDisplay() {
-    var db = window.sqlitePlugin.openDatabase({
-        name: "mydb.db",
-        location: "default",
-    });
+function updateDisplay(db) {
+    console.log("je vais logger les colonnes de la db:")
+    logTableColumns(db);
 
     db.transaction(function(tx) {
         tx.executeSql(
@@ -129,21 +162,6 @@ function updateDisplay() {
                 var toClear = document.getElementById("displayLists");
                 toClear.innerHTML = ""; // Empty the div
 
-                // for (let i = 0; i <= listeResultats.length - 1; i++) {
-                //     // Create a new element
-                //     var newButton = document.createElement("button");
-                //     var br = document.createElement("br");
-
-                //     // Set the button's text content and value
-                //     newButton.textContent = listeResultats[i][1];
-                //     newButton.value = listeResultats[i][0];
-                //     newButton.className = "buttonDeck"
-                //         // newButton.title = "Button Title";
-                //     var targetDiv = document.getElementById("displayLists");
-                //     targetDiv.appendChild(newButton);
-                //     targetDiv.appendChild(br);
-
-                // }
 
                 for (let i = 0; i <= listeResultats.length - 1; i++) {
                     var newButton = document.createElement("button");
@@ -173,6 +191,7 @@ function updateDisplay() {
                 console.log("Error querying table: " + error.message);
             }
         );
+
     });
 
 }
@@ -194,29 +213,49 @@ popupContainer.addEventListener("click", function(event) {
 });
 
 //-----------------logic regarding popup cards-----------
-var createDeckButton = document.getElementById("popupCreateDeckValidateButton");
-var createDeckTextArea = document.getElementById("popupCreateDeckTextArea");
+// var createDeckButton = document.getElementById("popupCreateDeckValidateButton");
+// var createDeckTextArea = document.getElementById("popupCreateDeckTextArea");
 
-createDeckButton.addEventListener("click", function() {
-    var deckName = createDeckTextArea.value;
-    var db = window.sqlitePlugin.openDatabase({
-        name: "mydb.db",
-        location: "default",
-    });
+// createDeckButton.addEventListener("click", handleCreateDeckButtonClick(db));
 
-    db.transaction(function(tx) {
-        tx.executeSql(
-            "INSERT INTO lists (listName) VALUES (?)", [deckName],
-            function() {
-                createDeckTextArea.value = ""
-                popupContainer.style.display = "none";
-                updateDisplay()
+// function handleCreateDeckButtonClick(db) {
+//     return function() {
+//         console.log('je suis dans la fonction qui appelle le listener')
+//         console.log(db)
+//         var deckName = createDeckTextArea.value;
 
-            },
-            function(error) {
-                console.log("Error inserting data: " + error.message);
-            }
-        );
+//         db.transaction(function(tx) {
+//             tx.executeSql(
+//                 "INSERT INTO lists (listName) VALUES (?)", [deckName],
+//                 function() {
+//                     createDeckTextArea.value = "";
+//                     popupContainer.style.display = "none";
+//                     updateDisplay();
+//                 },
+//                 function(error) {
+//                     console.log("Error inserting data: " + error.message);
+//                 }
+//             );
+//         });
+//     };
+// }
 
-    });
-});
+// createDeckButton.addEventListener("click", function() {
+//     var deckName = createDeckTextArea.value;
+
+//     db.transaction(function(tx) {
+//         tx.executeSql(
+//             "INSERT INTO lists (listName) VALUES (?)", [deckName],
+//             function() {
+//                 createDeckTextArea.value = ""
+//                 popupContainer.style.display = "none";
+//                 updateDisplay()
+
+//             },
+//             function(error) {
+//                 console.log("Error inserting data: " + error.message);
+//             }
+//         );
+
+//     });
+// });
